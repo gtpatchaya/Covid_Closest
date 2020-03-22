@@ -1,0 +1,567 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Find Closest Facility Sample</title>
+
+    <style type="text/css">
+        body {
+            font-family: sans-serif;
+        }
+        #map {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 2;
+        }
+        #show {
+            right: 20px;
+            top: 20px;
+            background-color: #FFFFFF;
+            border: 1px solid #2D2F37;
+            border-radius: 3px;
+            padding: 5px;
+            position: fixed;
+            width: auto;
+            vertical-align: middle;
+            display: none;
+        }
+        .loadingWidget {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: White url('https://developer.nostramap.com/developer/V2/images/loader.gif') no-repeat fixed center center;
+            filter: alpha(opacity=60);
+            opacity: 0.6;
+            z-index: 10000;
+            vertical-align: middle;
+            top: 0px;
+            left: 0px;
+        }
+        #map #map_layers #map_gc #map_graphics_layer {
+            display: none !important;
+        }
+
+         .stage-value {
+            float: left;
+            background: #fff;
+            padding-top: 4px;
+            padding-bottom: 4px;
+            border: 1px solid #adadad;
+            margin-right: 5px;
+            width: 50px;
+            text-align: center;
+            font: 13.3333px Arial;
+        }
+
+        select {
+            height: 24px;
+        }
+
+        .transparent-style{
+
+            background-color: #ffffff;
+            opacity: .4;
+
+            }
+    </style>
+
+    <script type="text/javascript" src="//api.nostramap.com/nostraapi/v2.0?key=GzK0Ok0h)7dNsn15p1u4OgA6vKxWzv4UimteWZC0kc2lo)UwNjYrJLjrWWqtSHLQ7IF4MlVKvcBCk6ONNJ5sIym=====2"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script type="text/javascript">
+        var map, gLayer, closestFacility, stopPoint, incident,gLayer_click,gLayer_marker;
+        var flagCategory = false;
+        var isFirstLoad = true;
+        var chkClickFromFindBtn = false;
+        var nostraCallout;
+
+        var initExtent,  point,  pointLayer;
+
+        var points = [];
+        var lstLabel = [];
+
+
+        nostra.onready = function () {
+            initialize();
+            incident = { lat: 13.725959020812544, lon: 100.54256009096578 };
+            setIncidentAndFacilities(incident);
+            //findRoute();
+            //setIncidentAndFacilities();
+        }
+
+        function initialize() {
+            //document.getElementById("cboReturnedAGSResult").selectedIndex = 1;
+
+            map = new nostra.maps.Map("map", {
+                id: "map",
+                logo: true,
+                basemap: "streetmap",
+                scalebar: true,
+                slider: true,
+                level: 12,
+                lat: 13.722944,
+                lon: 100.530449
+            });
+
+            //incident = { lat: 13.725959020812544, lon: 100.54256009096578 };
+            stopPoint = [
+            { name: "Bamrasnaradura Institute | สถาบันบำราศนราดูร" ,lat: 13.852990,lon: 100.521750 , inform : "ตลาดขวัญ, เมืองนนทบุรี, นนทบุรี"},
+            { name: "Bang Pakok 9 International Hospital | รพ. บางปะกอก 9 อินเตอร์แนทชั่นแนล" ,lat:  13.835300,lon:100.574250, inform : "บางมด, จอมทอง, กรุงเทพมหานคร"},
+            { name: "Paolo Memorial Chok Chai 4 Hospital | รพ. เปาโลเมโมเรียลโชคชัย 4" ,lat:  13.801850,lon:100.596050 , inform : "ลาดพร้าว, ลาดพร้าว, กรุงเทพมหานคร"},
+            { name: "Paolo Memorial Hospital | รพ. เปาโลเมโมเรียล" ,lat:  13.792110,lon:100.550450, inform : "สามเสนใน, พญาไท, กรุงเทพมหานคร" },
+            { name: "Vichaiyut Hospital | รพ. วิชัยยุทธ" ,lat:  13.780710,lon:100.532940 , inform : "พญาไท, พญาไท, กรุงเทพมหานคร"},
+            { name: "Phaya Thai 2 Hospital | รพ. พญาไท 2" ,lat:  13.769960,lon:100.540440 , inform : "พญาไท, พญาไท, กรุงเทพมหานคร"},
+            { name: "Rajavithi Hospital | รพ. ราชวิถี" ,lat:  13.764190,lon:100.536500, inform : "ทุ่งพญาไท, ราชเทวี, กรุงเทพมหานคร" },
+            { name: "Ramathibodi Hospital | รพ. รามาธิบดี" ,lat:  13.765720,lon:100.526310, inform : "ทุ่งพญาไท, ราชเทวี, กรุงเทพมหานคร"},
+            { name: "Chulalongkorn University |รพ. จุฬาลงกรณ์" ,lat:  13.738860,lon:100.533030, inform : "ปทุมวัน, ปทุมวัน, กรุงเทพมหานคร"},
+            { name: "The Bangkok Christian Hospital | รพ. กรุงเทพคริสเตียน" ,lat:  13.728020,lon:100.531480, inform : "สุริยวงศ์, บางรัก, กรุงเทพมหานคร"},
+            { name: "Phraram Kao Hospital | รพ. พระราม 9" ,lat:   13.752950,lon:100.570700 , inform : "บางกะปิ, ห้วยขวาง, กรุงเทพมหานคร"},
+            { name: "Paolo Hospital |รพ. เปาโลเมโมเรียลเกษตร" ,lat:  13.835300,lon:100.574250 , inform : "ซอย 3, เสนานิคม, จตุจักร, กรุงเทพมหานคร"},
+            { name: "Siriraj Piyamaharajkarun Hospital |รพ. ศิริราชปิยมหาราชการุณย์" ,lat:  13.759700,lon:100.485930, inform : "ศิริราช, บางกอกน้อย, กรุงเทพมหานคร"},
+            { name: "Paolo Hospital Phra Pradaeng |รพ. เปาโลเมโมเรียลพระประแดง" ,lat:  13.608570,lon:100.551190 , inform : "ปากคลองบางปลากด, พระสมุทรเจดีย์, สมุทรปราการ"},
+            { name: "Phaya Thai 3 Hospital |รพ. พญาไท 3 " ,lat: 13.722950,lon:100.464110, inform : "ปากคลองภาษีเจริญ, ภาษีเจริญ, กรุงเทพมหานคร" },
+            { name: "Paolo Memorial Samut Prakan Hospital | รพ. เปาโลเมโมเรียลสมุทรปราการ" ,lat:  13.598440,lon:100.614580, inform : "บางเมือง, เมืองสมุทรปราการ, สมุทรปราการ"},
+            { name: "Rangsit General Hospital | รพ. แพทย์รังสิต" ,lat:  13.963170,lon:100.621340, inform : "คูคต, ลำลูกกา, ปทุมธานี" },
+            { name: "Paalo Memorial Rangsit Hospital |รพ. เปาโลเมโมเรียลรังสิต" ,lat:   13.985750,lon:100.619550, inform : "ประชาธิปัตย์, ธัญบุรี, ปทุมธานี"},
+
+            ];
+
+            gLayer = new nostra.maps.layers.GraphicsLayer(map, { id: "gLayerClosestFacility", displayNodeLevel: 12 });
+            map.addLayer(gLayer);
+
+            gLayer_marker = new nostra.maps.layers.GraphicsLayer(map, { id: "pointLayer", displayNodeLevel: 12 });
+            map.addLayer(gLayer_marker);
+
+
+            pointLayer = new nostra.maps.layers.GraphicsLayer(map, { id: "pointLayer", mouseOver: false });
+            map.addLayer(pointLayer);
+
+
+            nostra.config.Language.setLanguage(nostra.language.L);
+
+            closestFacility = new nostra.services.network.closestFacility({
+                mode: nostra.services.network.mode.CAR,
+                impedance: nostra.services.network.impedance.TIME,
+                travelDirection: nostra.services.network.travelDirection.TOFACILITY,
+                country: "th"
+            });
+
+            map.events.layerAddComplete = function () {
+                if (!isFirstLoad) {
+                    //hideLoading();
+                }
+            };
+            map.events.load = function () {
+                hideLoading();
+                isFirstLoad = false;
+            };
+            map.events.click = function (evt) {
+                clearGraphic()
+               
+
+                lat = evt.mapPoint.getLatitude();
+                lon = evt.mapPoint.getLongitude();
+                incident.lat = lat;
+                incident.lon = lon;
+
+                // var pointMarker = new nostra.maps.symbols.Marker({ url: "https://i.ibb.co/jybpYQ5/fever-1.png", width: 60, height: 60, attributes: { POI_NAME: "TestAttr", POI_ROAD: "TestAttr" }});
+                // var g = pointLayer.addMarker(lat, lon, pointMarker);
+               
+                gLayer_marker.clear();
+                    nostraCallout_marker = new nostra.maps.Callout({ title: "I've got a fever" , content: "<button type='button' class='btn btn-primary' style='height:50px;' onclick='findRoute()''>  Find closest Hospital 🤔  </button>" });
+                    var calloutLayer_marker = new nostra.maps.layers.GraphicsLayer(map, { id: "calloutLayer" });
+                    point_marker = new nostra.maps.symbols.Marker({ url: "https://i.ibb.co/jybpYQ5/fever-1.png", width: 60, height: 60, attributes: { POI_NAME: "test", POI_ROAD: "test" }, callout: nostraCallout_marker });
+                    calloutLayer_marker.addMarker(lat, lon, point_marker);
+                    gLayer_marker.addMarker(lat, lon, point_marker);
+                    map.addLayer(calloutLayer_marker);
+                    nostraCallout_marker.setVisible(true);
+                    //nostraCallout.setVisible(true);
+            };
+        }
+
+        function clearGraphic() {
+                            pointLayer.clear();
+                        }
+
+
+        function findRoute() {
+            var txtCount = document.getElementById("facilityCount").value;
+
+            if (txtCount < 0 || txtCount <= stopPoint.length) {
+                chkClickFromFindBtn = true;
+                setIncidentAndFacilities(incident);
+            } else {
+                alert("ไม่สามารถกำหนดได้เกิน " + stopPoint.length + " จุด");
+                document.getElementById("facilityCount").value = stopPoint.length;
+            }
+        }
+
+        function setIncidentAndFacilities(incident) {
+            gLayer.clear();
+
+            if (closestFacility.incident.length <= 0) {
+                closestFacility.clearIncident();
+                closestFacility.setIncident(new nostra.services.network.stopPoint({ name: 'Incident', lat: incident.lat, lon: incident.lon }));
+            } else {
+                closestFacility.clearIncident();
+                closestFacility.setIncident(new nostra.services.network.stopPoint({ name: 'Incident', lat: incident.lat, lon: incident.lon }));
+            }
+
+            closestFacility.clearFacilities();
+
+            for (i = 0; i < stopPoint.length; i++) {
+                var stop = new nostra.services.network.stopPoint({ name: stopPoint[i].name, lat: stopPoint[i].lat, lon: stopPoint[i].lon });
+                closestFacility.addFacilities(stop);
+            }
+
+            closestFacilitySolve();
+        }
+
+        function addClosestFacility(result) {
+            gLayer.clear();
+
+            gLayer.addClosestFacilityRoute(result, "#cc0088", "#bbbbbb");
+
+            var points = [];
+
+            for (var p in stopPoint) {
+                points.push([stopPoint[p].lat, stopPoint[p].lon]);
+            }
+
+           // map.setExtent(points);
+            hideLoading();
+        }
+
+        function closestFacilitySolve() {
+            showLoading();
+
+            closestFacility.targetFacilityCount = 18;
+
+            var calBy =  "DISTANCE";//document.getElementById('cboCalBy').value;
+            var goBy = document.getElementById('cboGoBy').value;
+            var tollRoad = document.getElementById('cboTollroad').value;
+            //var optionRoute = document.getElementById('cboOption').value;
+            var optionRoute = "toFacility";
+            var setLang = document.getElementById('cboLang').value;
+            var directionsLanguage = document.getElementById('cboDirectionsLanguage').value;
+
+            if (setLang.toLowerCase() == nostra.language.E) {
+                closestFacility.language = "E";
+            } else {
+                closestFacility.language = "L";
+            }
+
+            closestFacility.directionsLanguage = directionsLanguage;
+
+            if (optionRoute == "toFacility") {
+                closestFacility.travelDirection = nostra.services.network.travelDirection.TOFACILITY
+            } else {
+                closestFacility.travelDirection = nostra.services.network.travelDirection.FROMFACILITY
+            }
+
+            if (calBy == "TIME") {
+                closestFacility.impedance = nostra.services.network.impedance.TIME;
+            } else {
+                closestFacility.impedance = nostra.services.network.impedance.DISTANCE;
+            }
+
+            if (goBy == "CAR") {
+                closestFacility.mode = nostra.services.network.mode.CAR;
+                if (tollRoad == 'y') { closestFacility.tollroad = "TRUE"; } else { closestFacility.tollroad = "FALSE"; }
+            } else if (goBy == "MOTORCYCLE") {
+                closestFacility.mode = nostra.services.network.mode.MOTORCYCLE;
+                closestFacility.tollroad = null;
+            } else if (goBy == "BICYCLE") {
+                closestFacility.mode = nostra.services.network.mode.BICYCLE;
+                closestFacility.tollroad = null;
+            } else {
+                closestFacility.mode = nostra.services.network.mode.WALK;
+                closestFacility.tollroad = null;
+            }
+
+            closestFacility.outSR = "4326";//document.getElementById('txtOutSR').value;
+            closestFacility.returnedAGSResult = false;//document.getElementById("cboReturnedAGSResult").value;
+
+            closestFacility.solve(function (solveResult) {
+                addClosestFacility(solveResult);
+
+                var pointCount = document.getElementById('facilityCount').value;
+
+                for (i = 0; i < stopPoint.length; i++) {
+                    var lat = stopPoint[i].lat;
+                    var lon = stopPoint[i].lon;
+                    nostraCallout = new nostra.maps.Callout({ title: " 🏥 Hospital", content: "<p1 style='font-size:18px;width:100px;'>"+stopPoint[i].name+"</p1>" });
+                    var calloutLayer = new nostra.maps.layers.GraphicsLayer(map, { id: "calloutLayer" });
+                    point = new nostra.maps.symbols.Marker({ url: "https://map.nostramap.com/NFS/LyrImages/Covid19/MapIcon/pin_covit_1.png", width: 30, height: 40, attributes: { POI_NAME: "test", POI_ROAD: "test" }, callout: nostraCallout });
+                    calloutLayer.addMarker(lat, lon, point);
+                    gLayer.addMarker(lat, lon, point);
+                    map.addLayer(calloutLayer);
+                    
+                }
+
+                point = new nostra.maps.symbols.Marker({ url: "https://i.ibb.co/jybpYQ5/fever-1.png", width: 60, height: 60, attributes: { POI_NAME: "test", POI_ROAD: "test" }, callout: null });
+                gLayer.addMarker(incident.lat, incident.lon, point);
+            });
+        }
+
+        
+
+        function setSelect() {
+            var goBy = document.getElementById('cboGoBy');
+            if (goBy.value == "CAR" || goBy.value == "TRUCK") {
+                document.getElementById("cboTollroad").disabled = false;
+            } else {
+                document.getElementById("cboTollroad").selectedIndex = 1;
+                document.getElementById("cboTollroad").disabled = true;
+            }
+        }
+        function showLoading() {
+            var x = document.getElementById("dlgLoading");
+            x.style.display = 'inline';
+        }
+        function hideLoading() {
+            var x = document.getElementById("dlgLoading");
+            x.style.display = 'none';
+        }
+        function switchCountry() {
+            showLoading();
+
+            var id = document.getElementById('country').value;
+
+            if (id == "AEC") {
+                map.country = "TH,SG,MY,BN,VN,PH,ID,MM,LA,KH";
+            } else {
+                map.country = id;
+            }
+
+            map.level = null;
+            map.lat = null;
+            map.lon = null;
+
+            map.removeAllLayers();
+            var streetMapLayer = new nostra.maps.layers.StreetMap(map);
+            gLayer = new nostra.maps.layers.GraphicsLayer(map, { id: "gLayerClosestFacility", displayNodeLevel: 12 });
+
+            map.addLayer(gLayer);
+            map.addLayer(streetMapLayer);
+
+            switch (id) {
+                case "TH":
+                    {
+                        incident = { lat: 13.725959020812544, lon: 100.54256009096578 };
+                        stopPoint = [{ name: 'facility_1', lat: 13.725680, lon: 100.544338 }, { name: 'facility_2', lat: 13.725051, lon: 100.541720 },
+                               { name: 'facility_3', lat: 13.726385, lon: 100.541907 }, { name: 'facility_4', lat: 13.726967, lon: 100.540827 }];
+                        break;
+                    }
+                case "SG":
+                    {
+                        incident = { lat: 1.2989218064726062, lon: 103.84657925964171 };
+                        stopPoint = [{ name: 'facility_1', lat: 1.2856214334604918, lon: 103.82683820129212 }, { name: 'facility_2', lat: 1.2766972733268211, lon: 103.84572095275696 },
+                               { name: 'facility_3', lat: 1.2851923880122949, lon: 103.86065549255187 }, { name: 'facility_4', lat: 1.309905287569738, lon: 103.86048383117489 }];
+                        break;
+                    }
+                case "MY":
+                    {
+                        incident = { lat: 3.146814363703608, lon: 101.71145383239734 };
+                        stopPoint = [{ name: 'facility_1', lat: 3.1533704901284376, lon: 101.71342793823233 }, { name: 'facility_2', lat: 3.1494710996482564, lon: 101.72235432983415 },
+                               { name: 'facility_3', lat: 3.1429577994761284, lon: 101.71887818695073 }, { name: 'facility_4', lat: 3.143986217997883, lon: 101.70235577941858 }];
+                        break;
+                    }
+                case "BN":
+                    {
+                        incident = { lat: 4.901022152815814, lon: 114.91813338622855 };
+                        stopPoint = [{ name: 'facility_1', lat: 4.930097255425487, lon: 114.83642257079896 }, { name: 'facility_2', lat: 4.872287867234364, lon: 114.91367019042778 },
+                               { name: 'facility_3', lat: 4.885628938747702, lon: 114.97272170409956 }, { name: 'facility_4', lat: 4.948567836481612, lon: 114.93701613769338 }];
+                        break;
+                    }
+                case "VN":
+                    {
+                        incident = { lat: 21.027267343262583, lon: 105.84180570373346 };
+                        stopPoint = [{ name: 'facility_1', lat: 21.02947049507082, lon: 105.83172059783719 }, { name: 'facility_2', lat: 21.02374223263278, lon: 105.8576414657578 },
+                               { name: 'facility_3', lat: 21.00871952004994, lon: 105.84056115875049 }, { name: 'facility_4', lat: 21.045372279223017, lon: 105.84068990478322 }];
+                        break;
+                    }
+                case "PH":
+                    {
+                        incident = { lat: 14.587109446682941, lon: 120.98197781982223 };
+                        stopPoint = [{ name: 'facility_1', lat: 14.614851076951831, lon: 120.97356641235154 }, { name: 'facility_2', lat: 14.616927405483324, lon: 120.9933933013896 },
+                               { name: 'facility_3', lat: 14.601063757953789, lon: 121.01030194701947 }, { name: 'facility_4', lat: 14.58029809253374, lon: 120.99922978820601 }];
+                        break;
+                    }
+                case "ID":
+                    {
+                        incident = { lat: -6.17749283198624, lon: 106.84049485717591 };
+                        stopPoint = [{ name: 'facility_1', lat: -6.165546175763387, lon: 106.78976892028635 }, { name: 'facility_2', lat: -6.160596767892844, lon: 106.8300235131818 },
+                               { name: 'facility_3', lat: -6.203774525923731, lon: 106.84813378845033 }, { name: 'facility_4', lat: -6.187561947149232, lon: 106.8088233331281 }];
+                        break;
+                    }
+                case "MM":
+                    {
+                        incident = { lat: 16.826080574828776, lon: 96.1545748571761 };
+                        stopPoint = [{ name: 'facility_1', lat: 16.860747271045376, lon: 96.10530804199061 }, { name: 'facility_2', lat: 16.867975544634813, lon: 96.18650387328934 },
+                               { name: 'facility_3', lat: 16.822958617660387, lon: 96.20435665649244 }, { name: 'facility_4', lat: 16.778424054999437, lon: 96.13655041259605 }];
+                        break;
+                    }
+                case "LA":
+                    {
+                        incident = { lat: 17.96521493793874, lon: 102.61178928039382 };
+                        stopPoint = [{ name: 'facility_1', lat: 17.97525710106584, lon: 102.57093387267902 }, { name: 'facility_2', lat: 17.94790515473115, lon: 102.62397723815747 },
+                               { name: 'facility_3', lat: 17.97076677348221, lon: 102.64552074096507 }, { name: 'facility_4', lat: 17.995421345983853, lon: 102.6082702221663 }];
+                        break;
+                    }
+                case "KH":
+                    {
+                        incident = { lat: 11.568144731814419, lon: 104.91723200012028 };
+                        stopPoint = [{ name: 'facility_1', lat: 11.548215356250225, lon: 104.91328378845037 }, { name: 'facility_2', lat: 11.557381363273572, lon: 104.93748804260072 },
+                               { name: 'facility_3', lat: 11.585634322840223, lon: 104.91551538635076 }, { name: 'facility_4', lat: 11.555026821272927, lon: 104.88401552367989 }];
+                        break;
+                    }
+                case "AEC":
+                    {
+                        incident = { lat: 5.72258, lon: 102.03931 };
+                        stopPoint = [{ name: 'facility_1', lat: 5.84828, lon: 101.80585 }, { name: 'facility_2', lat: 5.62966, lon: 101.97339 },
+                               { name: 'facility_3', lat: 5.88107, lon: 101.99811 }, { name: 'facility_3', lat: 6.0631104, lon: 101.3799307 }];
+                        break;
+                    }
+            }
+
+            document.getElementById("facilityCount").value = stopPoint.length;
+
+            setIncidentAndFacilities(incident);
+        }
+
+        function switchLanguage() {
+            document.getElementById("divLanguage").innerHTML = document.getElementById("cboLang").value;
+        }
+
+        function switchTollRoad() {
+            document.getElementById("divTollRoad").innerHTML = (document.getElementById("cboTollroad").value == "y")? "TRUE": "FALSE";
+        }
+
+        function switchDirectionsLanguage() {
+            document.getElementById("divDirectionsLanguage").innerHTML = document.getElementById("cboDirectionsLanguage").value;
+        }
+
+    </script>
+</head>
+<body>
+    <div class="">
+
+
+    <div id="dlgLoading" class="loadingWidget">
+    </div>
+    <div style="z-index:999;position: relative;">
+        <marquee style="background-color:#444444;color: whitesmoke;"  direction="left">🏥 18 Hospital to diagnos COVID-19 | 18 รพ.รับตรวจ COVID-19. 🏥</marquee>
+    
+    </div>
+    <div  id="map">
+    </div>
+    
+    <div id="show">
+        <table>
+            <tr>
+                <td><label>Zoom to country:</label></td>
+                <td>
+                    <select id="country" style="width: 207px;" onchange="switchCountry();">
+                        <option value="AEC">AEC Member Countries</option>
+                        <option value="BN">Brunei</option>
+                        <option value="KH">Cambodia</option>
+                        <option value="ID">Indonesia</option>
+                        <option value="LA">Laos</option>
+                        <option value="MY">Malaysia</option>
+                        <option value="MM">Myanmar</option>
+                        <option value="PH">Philippines</option>
+                        <option value="SG">Singapore</option>
+                        <option value="TH" selected>Thailand</option>
+                        <option value="VN">Vietnam</option>
+                    </select>
+                </td>
+            </tr>
+            <tr><td colspan="2"><hr></td></tr>
+            <tr>
+                <td><label>language:</label></td>
+                <td>
+                    <div class="cell stage-value" id="divLanguage">E</div>
+                    <select id="cboLang" style="width: 150px;" onchange="switchLanguage()">
+                        <option value="E">English</option>
+                        <option value="L">Local</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><label>directionsLanguage:</label></td>
+                <td>
+                    <div class="cell stage-value" id="divDirectionsLanguage">EN</div>
+                    <select id="cboDirectionsLanguage" style="width: 150px;" onchange="switchDirectionsLanguage()">
+                        <option value="BN">Brunei</option>
+                        <option value="KH">Cambodia</option>
+                        <option value="EN" selected>English</option>
+                        <option value="ID">Indonesia</option>
+                        <option value="LA">Laos</option>
+                        <option value="MY">Malaysia</option>
+                        <option value="MM">Myanmar</option>
+                        <option value="PH">Philippines</option>
+                        <option value="SG">Singapore</option>
+                        <option value="TH">Thailand</option>
+                        <option value="VN">Vietnam</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><label>mode:</label></td>
+                <td>
+                    <select id="cboGoBy" style="width: 207px;" onchange="setSelect();" >
+                        <option value="CAR">Car</option>
+                        <option value="TRUCK">Truck</option>
+                        <option value="MOTORCYCLE">Motorcycle</option>
+                        <option value="BICYCLE">Bicycle</option>
+                        <option value="WALK">Walk</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><label>impedance:</label></td>
+                <td>
+                    <select id="cboCalBy" style="width: 207px;">
+                        <option value="TIME">Time</option>
+                        <option value="DISTANCE">Distance</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><label>tollroad:</label></td>
+                <td>
+                    <div class="cell stage-value" id="divTollRoad">TRUE</div>
+                    <select id="cboTollroad" style="width: 150px;" onchange="switchTollRoad()">
+                        <option value="y">Pass</option>
+                        <option value="n">Not Pass</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><label>targetFacilityCount:</label></td>
+                <td>
+                    <input type="text" style="width: 203px;" id="facilityCount" value="5" />
+                </td>
+            </tr>
+            <tr>
+                <td><label>direction:</label></td>
+                <td>
+                    <select id="cboOption" style="width: 207px;">
+                        <option value="toFacility">toFacility</option>
+                        <option value="fromFacility">fromFacility</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>
+                    <button style="position: relative;" id="btnRoute" onclick="findRoute();" style="width:100px;">Find Route</button>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+</body>
+</html>
